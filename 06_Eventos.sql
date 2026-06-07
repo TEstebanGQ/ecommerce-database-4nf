@@ -365,3 +365,77 @@ DO
     WHERE activo = FALSE
     AND fecha_modificacion < DATE_SUB(NOW(), INTERVAL 30 DAY)
     AND id_producto NOT IN (SELECT DISTINCT id_producto FROM detalle_ventas);
+
+-- Reporte semanal
+INSERT INTO reporte_ventas_semanales (semana_inicio, semana_fin, total_pedidos, ingresos_totales)
+SELECT DATE_SUB(CURDATE(), INTERVAL 7 DAY), CURDATE(), COUNT(id_venta), IFNULL(SUM(total), 0)
+FROM ventas WHERE fecha_venta >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND estado != 'Cancelado';
+
+-- Lista reabastecimiento
+INSERT INTO lista_reabastecimiento (id_producto, nombre_producto, stock_actual)
+SELECT id_producto, nombre, stock FROM productos WHERE stock < 15 AND activo = TRUE;
+
+-- Resumen ventas diarias
+INSERT INTO resumen_ventas_diarias (fecha_dia, total_pedidos, ingresos_totales)
+SELECT DATE(fecha_venta), COUNT(id_venta), IFNULL(SUM(total), 0)
+FROM ventas WHERE estado != 'Cancelado'
+GROUP BY DATE(fecha_venta)
+ON DUPLICATE KEY UPDATE total_pedidos = VALUES(total_pedidos), ingresos_totales = VALUES(ingresos_totales);
+
+-- KPIs mensuales
+INSERT INTO kpis_mensuales (anio, mes, total_ventas, total_pedidos, nuevos_clientes)
+SELECT 
+    anio,
+    mes,
+    total_ventas,
+    total_pedidos,
+    (SELECT COUNT(*) FROM clientes 
+     WHERE YEAR(fecha_registro) = anio 
+     AND MONTH(fecha_registro) = mes) AS nuevos_clientes
+FROM (
+    SELECT 
+        YEAR(fecha_venta)        AS anio,
+        MONTH(fecha_venta)       AS mes,
+        IFNULL(SUM(total), 0)    AS total_ventas,
+        COUNT(id_venta)          AS total_pedidos
+    FROM ventas
+    WHERE estado != 'Cancelado'
+    GROUP BY YEAR(fecha_venta), MONTH(fecha_venta)
+) AS resumen;
+
+-- Tamaño BD
+INSERT INTO log_tamano_bd (tamano_mb)
+SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2)
+FROM information_schema.TABLES WHERE table_schema = 'ecommerce_db';
+
+-- Ranking productos
+INSERT INTO ranking_productos (id_producto, nombre_producto, total_vendido)
+SELECT p.id_producto, p.nombre, IFNULL(SUM(dv.cantidad), 0)
+FROM productos p LEFT JOIN detalle_ventas dv ON p.id_producto = dv.id_producto
+GROUP BY p.id_producto, p.nombre ORDER BY 3 DESC LIMIT 50;
+
+-- Actividad sospechosa (simulada)
+INSERT INTO log_actividad_sospechosa (id_cliente, descripcion)
+SELECT id_cliente, CONCAT('Múltiples pedidos pendientes: ', COUNT(*))
+FROM ventas WHERE estado = 'Pendiente de Pago'
+GROUP BY id_cliente HAVING COUNT(*) > 2;
+
+-- Reporte rendimiento proveedores
+INSERT INTO reporte_rendimiento_proveedores (anio, mes, id_proveedor, nombre_proveedor, total_unidades_vendidas, dinero_generado)
+SELECT YEAR(CURDATE()), MONTH(CURDATE()), prov.id_proveedor, prov.nombre,
+    IFNULL(SUM(dv.cantidad), 0), IFNULL(SUM(dv.cantidad * dv.precio_unitario_congelado), 0)
+FROM proveedores prov
+INNER JOIN productos p ON prov.id_proveedor = p.id_proveedor
+LEFT JOIN detalle_ventas dv ON p.id_producto = dv.id_producto
+GROUP BY prov.id_proveedor, prov.nombre;
+
+
+
+-- Ver funciones
+SHOW FUNCTION STATUS WHERE Db = 'ecommerce_db';
+
+-- Ver procedimientos  
+SHOW PROCEDURE STATUS WHERE Db = 'ecommerce_db';
+
+-- Ver eventos
+SHOW EVENTS FROM ecommerce_db;

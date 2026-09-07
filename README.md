@@ -44,3 +44,12 @@ Define 20 procedimientos almacenados para operaciones complejas y transaccionale
 - Los archivos deben ejecutarse **en orden**, ya que cada uno depende de los objetos creados por el anterior.
 - Si se necesita reiniciar desde cero, basta con ejecutar nuevamente el archivo `01_Esquema_y_Datos.sql`, el cual elimina y recrea la base de datos completa (`DROP DATABASE IF EXISTS ecommerce_db`).
 - El archivo `04_Seguridad.sql` requiere permisos de administrador en el servidor MySQL para crear usuarios y roles.
+
+---
+
+<div align="center">
+  <br/>
+  <img src="https://raw.githubusercontent.com/TEstebanGQ/TEstebanGQ/main/assets/logo-tegq.jpg" width="80" alt="TEGQ Brand Logo" />
+  <br/>
+  <sub><b>© Tomas Esteban González Quintero — TEGQ</b></sub>
+</div>
